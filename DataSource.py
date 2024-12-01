@@ -65,7 +65,7 @@ class StudentStressDataSet(Dataset):
         self.y_test = y_test.to_numpy()
 
         self.inited = True
-        print("initializing successfully!")
+        print("initializing datasource successfully!")
 
 
     def EDA(self): #展示数据的特征
