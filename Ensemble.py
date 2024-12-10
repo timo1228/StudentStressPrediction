@@ -59,7 +59,7 @@ def Best_RandomForest_model():
 
     # 评估模型性能
     accuracy = accuracy_score(y_test, y_pred)
-    print(f"Accuracy: {accuracy:.2f}")
+    print(f"Accuracy: {accuracy:.6f}") #89.54545454545455%
     print("\nClassification Report:")
     print(classification_report(y_test, y_pred))
 
