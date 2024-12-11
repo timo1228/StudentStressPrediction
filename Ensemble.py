@@ -3,7 +3,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import accuracy_score, classification_report
 
+from xgboost import XGBClassifier
+
 import matplotlib.pyplot as plt
+
+import pandas as pd
+import numpy as np
 
 from DataSource import StudentStressDataSet
 
@@ -76,8 +81,66 @@ def Best_RandomForest_model():
     plt.title('Feature Importance in Random Forest')
     plt.show()
 
+def Best_XGBoost_model():
+
+    data = pd.read_csv('./data/StressLevelDataset.csv')
+
+    # Rename columns to remove spaces
+    data.columns = data.columns.str.replace(' ', '')
+    data.dropna(inplace=True)
+
+    X = data.drop(['stress_level'], axis=1)  # Ensure 'Close' is dropped to create the feature set
+    y = data['stress_level']  # Target variable is 'Close' price
+
+    X.replace([np.inf, -np.inf], np.nan, inplace=True)
+    X.fillna(method='ffill', inplace=True)
+
+    # Calculate correlations between features
+    correlation_matrix = X.corr()
+
+    # Set a threshold to remove features with a correlation greater than
+    threshold = 0.75
+    drop_columns = set()
+
+    # Traverse the correlation coefficient matrix to remove highly correlated features
+    for i in range(len(correlation_matrix.columns)):
+        for j in range(i):
+            if abs(correlation_matrix.iloc[i, j]) > threshold:  # The correlation is greater than the threshold
+                colname = correlation_matrix.columns[i]
+                drop_columns.add(colname)
+
+    print("Dropped columns due to high correlation:", drop_columns)
+
+    # Remove highly relevant features
+    X = X.drop(columns=drop_columns)
+
+    # Step 3: Split the data into training and testing sets
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)  # random split the data, not appropriate for time series data
+
+    # X_train, X_test, y_train, y_test = dataset.train_and_test()
+    # 初始化 XGBoost 分类器
+    xgb_classifier = XGBClassifier(
+        max_depth=5,  # 树的最大深度
+        learning_rate=1,  # 学习率
+        n_estimators=150,  # 树的数量
+        objective='multi:softmax',  # 多分类问题
+        num_class=3,  # 类别数量（需根据数据调整）
+        eval_metric='mlogloss'  # 评估指标
+    )
+
+    # 训练模型
+    xgb_classifier.fit(X_train, y_train)
+
+    # 使用模型进行预测
+    y_pred = xgb_classifier.predict(X_test)
+
+    # 计算并打印准确率
+    accuracy = accuracy_score(y_test, y_pred)
+    print(f"XGBoost Accuracy: {accuracy}")
+
 
 
 if __name__ == '__main__':
-    Best_RandomForest_model()
+    #Best_RandomForest_model()
     #Best_RFParam_Search()
+    Best_XGBoost_model()
