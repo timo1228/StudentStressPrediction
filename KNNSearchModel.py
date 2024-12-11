@@ -86,7 +86,7 @@ class KNNModel:
         return results
 
 def KNNModel_test():
-    k = 10  # define k nearest neighbor to search
+    k = 8  # define k nearest neighbor to search
     model = KNNModel(similarity_method="cosine")
     dataset = StudentStressDataSet()
     X_train, X_test, y_train, y_test = dataset.train_and_test()
@@ -104,9 +104,6 @@ def KNNModel_test():
 
     accuracy = accuracy_score(y_test, y_pred)
     print(f"KNN Search Accuracy: {accuracy}")
-
-
-
 
 if __name__ == '__main__':
     KNNModel_test()
