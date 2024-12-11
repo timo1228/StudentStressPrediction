@@ -1,3 +1,5 @@
+from math import gamma
+
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, clone
 from DataSource import StudentStressDataSet
@@ -113,8 +115,8 @@ class AllVsAllClassifier(BaseEstimator, ClassifierMixin):
                     score_ij = self.get_decision_scores(estimator_ji, X, neg_score=True)
                     scores_i.append(score_ij.reshape(-1, 1))
             scores_i = np.hstack(scores_i)
-            #reserve the max value of score of class i
-            scores_i = np.max(scores_i, axis=1)
+            #score i is the sum of the score on i from other (k-1) classifiers
+            scores_i = np.sum(scores_i, axis=1)
             scores.append(scores_i.reshape(-1, 1))
         decision_matrix = np.hstack(scores)
         return decision_matrix
@@ -133,8 +135,7 @@ def SVM():
     dataset = StudentStressDataSet()
     X_train, X_test, y_train, y_test = dataset.train_and_test()
 
-
-    svm_estimator = SVC(kernel='poly', degree=5, C=0.09, coef0=0) #90%
+    svm_estimator = SVC(kernel='poly', degree=4, C=0.09, coef0=3, gamma='scale') #0.8954545454545455
     #svm_estimator = SVC(kernel='rbf', C=1, gamma=0.1) #88.6%, best we can find
     clf_allvsall = AllVsAllClassifier(svm_estimator, n_classes=3)
     clf_allvsall.fit(X_train, y_train)
@@ -149,7 +150,7 @@ def LogistiRegression():
     dataset = StudentStressDataSet()
     X_train, X_test, y_train, y_test = dataset.train_and_test()
 
-    lr_estimator = LogisticRegression(random_state=42, penalty='l2', C=2, max_iter=10000) #0.8818181818181818
+    lr_estimator = LogisticRegression(random_state=42, penalty='l2', C=2, max_iter=10000) #0.8909090909090909
     #lr_estimator = LogisticRegression(random_state=42, penalty='l1', solver='saga', C=8, max_iter=10000) #82.7%
     clf_allvsall = AllVsAllClassifier(lr_estimator, n_classes=3)
     clf_allvsall.fit(X_train, y_train)
@@ -176,6 +177,6 @@ def NaiveBayes():
 
 
 if __name__ == '__main__':
-    #SVM()
-    LogistiRegression()
+    SVM()
+    #LogistiRegression()
     #NaiveBayes()
