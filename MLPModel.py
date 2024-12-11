@@ -7,6 +7,8 @@ import torch.nn.functional as F
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
+from DataSource import StudentStressDataSet
+
 def split_train_and_test():
     data = pd.read_csv('./data/StressLevelDataset.csv')
     # 按 8:2 比例分割数据
@@ -31,13 +33,21 @@ class StressLevelDataset(Dataset):
     def __len__(self):
         return self.len
 
-class SimpleSoftmaxModel(torch.nn.Module): #One Layer Softmax Model，
+class MLPModel(torch.nn.Module): #One Layer Softmax Model，
     def __init__(self):
         super().__init__()
-        self.linear1 = torch.nn.Linear(20, 3)
+        self.linear1 = torch.nn.Linear(20, 40)
+        self.linear2 = torch.nn.Linear(40, 20)
+        self.linear3 = torch.nn.Linear(20, 10)
+        self.linear4 = torch.nn.Linear(10, 5)
+        self.linear5 = torch.nn.Linear(5, 3)
 
     def forward(self, x): #x.shape = (N, 20)
-        return self.linear1(x)
+        x = F.relu(self.linear1(x))
+        x = F.relu(self.linear2(x))
+        x = F.relu(self.linear3(x))
+        x = F.relu(self.linear4(x))
+        return self.linear5(x)
 
 def train(epoch_size, device):
     # 0 Pre-define parameters
@@ -58,7 +68,7 @@ def train(epoch_size, device):
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
     # 2 Prepare Model
-    model = SimpleSoftmaxModel()
+    model = MLPModel()
     model.to(device)
     criterion = torch.nn.CrossEntropyLoss()  # 多分类交叉熵损失函数
     optimizer = torch.optim.SGD(model.parameters(), lr=0.005, momentum=0.9)
@@ -112,6 +122,10 @@ def train(epoch_size, device):
             #test()
             print("Accuracy of the network on test set: %d %%" % test_acc)
             print("--------testing finished--------")
+
+    torch.save(model.state_dict(), './final_mlp_model.pth')
+    print("Model saved to ./final_mlp_model.pth")
+
     #plot
     # 创建折线图
     plt.plot([i for i in range(1,epoch_size+1)], loss_list, marker='o', linestyle='-', color='r', label='Empirical Risk')
@@ -136,6 +150,44 @@ def train(epoch_size, device):
     # 显示图形
     plt.show()
 
+
+def load_and_evaluate_BestMLP_model(device):
+    if device == 'gpu':
+        if torch.cuda.is_available():
+            device = torch.device('cuda')
+        elif torch.backends.mps.is_available():
+            device = torch.device('mps')
+        else:
+            device = torch.device('cpu')
+    else:
+        device = torch.device("cpu")
+
+    filepath = './final_mlp_model.pth'
+    # 加载模型
+    model = MLPModel()
+    model.load_state_dict(torch.load(filepath))
+    model.to(device)
+    model.eval()  # 设置为评估模式
+
+    # 评估
+    dataset = StudentStressDataSet()
+    X_train, X_test, y_train, y_test = dataset.train_and_test()
+    X_test, y_test = torch.from_numpy(X_test), torch.from_numpy(y_test)
+
+    with torch.no_grad():  # 不构建计算图
+        inputs, labels = X_test.to(device), y_test.to(device)
+        inputs = inputs.float()  # 转换为浮动类型，linear层必须要求输入为float
+        labels = labels.view(inputs.size(0))
+        labels = labels.to(torch.int64)
+        y_pred = model(inputs)
+        #scores for each class = y_pred.detach().numpy()
+        _, predicted = torch.max(y_pred, 1)
+        correct = (predicted == labels).sum().item()
+        total = labels.size(0)
+
+    print("Accuracy of the loaded model on test set: %.2f%%" % (100 * correct / total))
+
+
 if __name__ == '__main__':
-    #split_train_and_test()
-    train(50, 'gpu')
+    #train(100, 'gpu')
+    load_and_evaluate_BestMLP_model('gpu')
