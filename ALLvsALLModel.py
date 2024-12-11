@@ -134,7 +134,7 @@ def SVM():
     X_train, X_test, y_train, y_test = dataset.train_and_test()
 
 
-    svm_estimator = SVC(kernel='poly', degree=5, C=0.1, coef0=0) #89.56%
+    svm_estimator = SVC(kernel='poly', degree=5, C=0.09, coef0=0) #90%
     #svm_estimator = SVC(kernel='rbf', C=1, gamma=0.1) #88.6%, best we can find
     clf_allvsall = AllVsAllClassifier(svm_estimator, n_classes=3)
     clf_allvsall.fit(X_train, y_train)
@@ -149,7 +149,7 @@ def LogistiRegression():
     dataset = StudentStressDataSet()
     X_train, X_test, y_train, y_test = dataset.train_and_test()
 
-    lr_estimator = LogisticRegression(random_state=42, penalty='l2', C=1, max_iter=10000) #88.2%
+    lr_estimator = LogisticRegression(random_state=42, penalty='l2', C=2, max_iter=10000) #0.8818181818181818
     #lr_estimator = LogisticRegression(random_state=42, penalty='l1', solver='saga', C=8, max_iter=10000) #82.7%
     clf_allvsall = AllVsAllClassifier(lr_estimator, n_classes=3)
     clf_allvsall.fit(X_train, y_train)
@@ -177,5 +177,5 @@ def NaiveBayes():
 
 if __name__ == '__main__':
     #SVM()
-    #LogistiRegression()
-    NaiveBayes()
+    LogistiRegression()
+    #NaiveBayes()
