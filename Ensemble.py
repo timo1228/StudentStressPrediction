@@ -75,10 +75,18 @@ def Best_RandomForest_model():
                       'social_support', 'peer_pressure', 'extracurricular_activities', 'bullying']
     #通过评估每个特征对模型预测性能的贡献来计算。这是通过所有树（1000个）的加权平均得到的
     feature_importances = rf_clf.feature_importances_
+    # 对特征重要性排序
+    sorted_indices = np.argsort(feature_importances)[::-1]  # 按重要性从高到低排序
+    sorted_feature_labels = [feature_labels[i] for i in sorted_indices]
+    sorted_feature_importances = feature_importances[sorted_indices]
+
+    # 绘制排序后的特征重要性图
     plt.figure(figsize=(15, 8))
-    plt.barh(feature_labels, feature_importances)
+    plt.barh(sorted_feature_labels, sorted_feature_importances)
     plt.xlabel('Feature Importance')
-    plt.title('Feature Importance in Random Forest')
+    plt.ylabel('Features')
+    plt.title('Feature Importance in Random Forest (Sorted)')
+    plt.gca().invert_yaxis()  # 将y轴顺序颠倒，以便最高的重要性在顶部
     plt.show()
 
 def Best_XGBoost_model():
@@ -141,6 +149,6 @@ def Best_XGBoost_model():
 
 
 if __name__ == '__main__':
-    #Best_RandomForest_model()
+    Best_RandomForest_model()
     #Best_RFParam_Search()
-    Best_XGBoost_model()
+    #Best_XGBoost_model()
