@@ -1,11 +1,14 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 import torch
-from torchvision import datasets,transforms
 from torch.utils.data import DataLoader, Dataset
 import torch.nn.functional as F
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_curve, roc_auc_score
+
 
 from DataSource import StudentStressDataSet
 
@@ -150,44 +153,108 @@ def train(epoch_size, device):
     # 显示图形
     plt.show()
 
+class BestMLPModel(object):
+    def __init__(self, device, filepath='./final_mlp_model.pth'):
+        if device == 'gpu':
+            if torch.cuda.is_available():
+                device = torch.device('cuda')
+            elif torch.backends.mps.is_available():
+                device = torch.device('mps')
+            else:
+                device = torch.device('cpu')
+        else:
+            device = torch.device("cpu")
+
+        # 加载模型
+        model = MLPModel()
+        model.load_state_dict(torch.load(filepath))
+        model.to(device)
+        model.eval()  # 设置为评估模式
+
+        self.model = model
+        self.device = device
+
+    def score_matrix(self, X_test):
+        """
+
+        :param X_test: numpy array
+        :return:
+        """
+        X_test = torch.from_numpy(X_test)
+        with torch.no_grad():  # 不构建计算图
+            inputs = X_test.to(self.device)
+            inputs = inputs.float()  # 转换为浮动类型，linear层必须要求输入为float
+            y_pred = self.model(inputs)
+            return y_pred.detach().numpy()
 
 def load_and_evaluate_BestMLP_model(device):
-    if device == 'gpu':
-        if torch.cuda.is_available():
-            device = torch.device('cuda')
-        elif torch.backends.mps.is_available():
-            device = torch.device('mps')
-        else:
-            device = torch.device('cpu')
-    else:
-        device = torch.device("cpu")
-
-    filepath = './final_mlp_model.pth'
-    # 加载模型
-    model = MLPModel()
-    model.load_state_dict(torch.load(filepath))
-    model.to(device)
-    model.eval()  # 设置为评估模式
-
-    # 评估
     dataset = StudentStressDataSet()
     X_train, X_test, y_train, y_test = dataset.train_and_test()
-    X_test, y_test = torch.from_numpy(X_test), torch.from_numpy(y_test)
 
-    with torch.no_grad():  # 不构建计算图
-        inputs, labels = X_test.to(device), y_test.to(device)
-        inputs = inputs.float()  # 转换为浮动类型，linear层必须要求输入为float
-        labels = labels.view(inputs.size(0))
-        labels = labels.to(torch.int64)
-        y_pred = model(inputs)
-        #scores for each class = y_pred.detach().numpy()
-        _, predicted = torch.max(y_pred, 1)
-        correct = (predicted == labels).sum().item()
-        total = labels.size(0)
-
+    model = BestMLPModel(device, filepath='./final_mlp_model.pth')
+    score_function = model.score_matrix(X_test)
+    predicted = np.argmax(score_function, 1)
+    correct = (predicted == y_test).sum()
+    total = y_test.shape[0]
     print("Accuracy of the loaded model on test set: %.2f%%" % (100 * correct / total))
 
+def get_model_merged_roc_curve_parameters(X_test, y_test ,model, num_classes=3):
+    # 获取模型的预测概率
+    y_score = model.score_matrix(X_test)
+
+    # One-hot encode the true labels for multiclass ROC
+    y_test_one_hot = np.zeros((len(y_test), num_classes))
+    for i, label in enumerate(y_test):
+        y_test_one_hot[i, label] = 1
+
+    # Calculate macro-average ROC curve
+    fpr = dict()
+    tpr = dict()
+    roc_auc = dict()
+
+    # Compute ROC curve and ROC area for each class
+    for i in range(num_classes):
+        fpr[i], tpr[i], _ = roc_curve(y_test_one_hot[:, i], y_score[:, i])
+        roc_auc[i] = roc_auc_score(y_test_one_hot[:, i], y_score[:, i])
+
+    # Aggregate all false positive rates
+    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(num_classes)]))
+
+    # Interpolate all ROC curves at these points
+    mean_tpr = np.zeros_like(all_fpr)
+    for i in range(num_classes):
+        mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
+
+    # Average it and compute the macro-average ROC curve
+    mean_tpr /= num_classes
+
+    # Compute macro-average AUC
+    macro_auc = np.mean(list(roc_auc.values()))  # 直接计算各个类别的AUC的平均值
+
+    return all_fpr, mean_tpr, macro_auc
+
+
+def plot_roc_auc():
+    dataset = StudentStressDataSet()
+    X_train, X_test, y_train, y_test = dataset.train_and_test()
+    model = BestMLPModel('cpu', filepath='./final_mlp_model.pth')
+    all_fpr, mean_tpr, macro_auc = get_model_merged_roc_curve_parameters(X_test, y_test, model, num_classes=3)
+
+    # 绘制合并的 ROC 曲线
+    plt.plot(all_fpr, mean_tpr, label=f"MLP (Macro AUC={macro_auc:.2f})")
+
+    # 绘制随机猜测的对角线
+    plt.plot([0, 1], [0, 1], 'k--', lw=1, label="Chance Level (AUC=0.50)")
+
+    # 设置图表
+    plt.title("Merged ROC Curve for MLP (Combined Classes)", fontsize=16)
+    plt.xlabel("False Positive Rate", fontsize=12)
+    plt.ylabel("True Positive Rate", fontsize=12)
+    plt.legend(loc="best")
+    plt.grid()
+    plt.show()
 
 if __name__ == '__main__':
     #train(100, 'gpu')
-    load_and_evaluate_BestMLP_model('gpu')
+    #load_and_evaluate_BestMLP_model('cpu')
+    plot_roc_auc()
