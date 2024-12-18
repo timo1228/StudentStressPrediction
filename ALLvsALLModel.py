@@ -1,5 +1,3 @@
-from math import gamma
-
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, clone
 from DataSource import StudentStressDataSet
@@ -7,6 +5,9 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import BernoulliNB
+
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, roc_auc_score
 
 class AllVsAllClassifier(BaseEstimator, ClassifierMixin):
     """
@@ -174,9 +175,175 @@ def NaiveBayes():
     accuracy = accuracy_score(y_test, y_pred)
     print(f"Bernoulli Naive Bayes Accuracy: {accuracy}")
 
+def plot_seperate_auc_curves():
+    # Assuming StudentStressDataSet is a class that prepares the dataset
+    dataset = StudentStressDataSet()
+    X_train, X_test, y_train, y_test = dataset.train_and_test()
 
+    models = {
+        "SVM": SVC(kernel='poly', degree=4, C=0.09, coef0=3, gamma='scale'),
+        "Logistic Regression": LogisticRegression(random_state=42, penalty='l2', C=2, max_iter=10000),
+        "Naive Bayes": BernoulliNB(alpha=1, binarize=1, fit_prior=True),
+    }
+
+    # Prepare plot
+    plt.figure(figsize=(10, 7))
+
+    for name, model in models.items():
+        # Initialize AllVsAllClassifier
+        clf_allvsall = AllVsAllClassifier(model, n_classes=3)
+        clf_allvsall.fit(X_train, y_train)
+
+        # Get decision function or probabilities for test set
+        y_score = clf_allvsall.decision_function(X_test)
+
+        # Calculate AUC for all classes and average them (Macro-average AUC)
+        auc_scores = []
+        for i in range(3):  # Assuming 3 classes
+            y_test_binary = (y_test == i).astype(int)
+            fpr, tpr, _ = roc_curve(y_test_binary, y_score[:, i])
+            auc_score = roc_auc_score(y_test_binary, y_score[:, i])
+            auc_scores.append(auc_score)
+
+            # Plot each ROC curve for individual classes (if needed)
+            plt.plot(fpr, tpr, label=f"{name} - Class {i} (AUC={auc_score:.2f})")
+
+        # Calculate macro-average AUC
+        macro_auc = np.mean(auc_scores)
+
+        # Plot the ROC curve for the macro-averaged AUC
+        #plt.plot(fpr, tpr, label=f"{name} (Macro AUC={macro_auc:.2f})")
+
+    # Plot settings
+    plt.plot([0, 1], [0, 1], 'k--', lw=1, label="Chance Level (AUC=0.50)")
+    plt.title("AUC-ROC Curves for Different Models (Macro-Averaged)", fontsize=16)
+    plt.xlabel("False Positive Rate", fontsize=12)
+    plt.ylabel("True Positive Rate", fontsize=12)
+    plt.legend(loc="best")
+    plt.grid()
+    plt.show()
+
+def plot_merged_auc_curves():
+    """
+    Plot merged ROC curves for multiple models (SVM, Logistic Regression, Naive Bayes).
+    This function will display a combined ROC curve for each model with macro-average AUC.
+    """
+    dataset = StudentStressDataSet()
+    X_train, X_test, y_train, y_test = dataset.train_and_test()
+
+    models = {
+        "SVM": SVC(kernel='poly', degree=4, C=0.09, coef0=3, gamma='scale'),
+        "Logistic Regression": LogisticRegression(random_state=42, penalty='l2', C=2, max_iter=10000),
+        "Naive Bayes": BernoulliNB(alpha=1, binarize=1, fit_prior=True),
+    }
+
+    # Prepare plot
+    plt.figure(figsize=(10, 7))
+
+    # To collect all fpr, tpr and AUC scores for plotting later
+    all_fpr = np.linspace(0, 1, 100)  # Common FPR to interpolate all curves
+    for name, model in models.items():
+        # Initialize AllVsAllClassifier
+        clf_allvsall = AllVsAllClassifier(model, n_classes=3)
+        clf_allvsall.fit(X_train, y_train)
+
+        # Get decision function or probabilities for test set
+        y_score = clf_allvsall.decision_function(X_test)
+
+        # Calculate AUC for all classes and average them (Macro-average AUC)
+        auc_scores = []
+        mean_tpr = np.zeros_like(all_fpr)
+
+        for i in range(3):  # Assuming 3 classes
+            y_test_binary = (y_test == i).astype(int)
+            fpr, tpr, _ = roc_curve(y_test_binary, y_score[:, i])
+            auc_score = roc_auc_score(y_test_binary, y_score[:, i])
+            auc_scores.append(auc_score)
+
+            # Ensure the starting point is (0,0) for each curve
+            if fpr[0] > 0:
+                fpr = np.insert(fpr, 0, 0)  # Insert 0 at the start of fpr
+                tpr = np.insert(tpr, 0, 0)  # Insert 0 at the start of tpr
+
+            # Interpolate each ROC curve at common FPR
+            mean_tpr += np.interp(all_fpr, fpr, tpr)
+
+        # Average it to get the macro-average TPR
+        mean_tpr /= 3
+
+        # Calculate macro-average AUC
+        macro_auc = np.mean(auc_scores)
+
+        # Plot the ROC curve for the macro-averaged AUC
+        plt.plot(all_fpr, mean_tpr, label=f"{name} (Macro AUC={macro_auc:.2f})")
+
+    # Plot settings
+    plt.plot([0, 1], [0, 1], 'k--', lw=1, label="Chance Level (AUC=0.50)")
+    plt.title("Merged ROC Curves for Different Models (Macro-Averaged)", fontsize=16)
+    plt.xlabel("False Positive Rate", fontsize=12)
+    plt.ylabel("True Positive Rate", fontsize=12)
+    plt.legend(loc="best")
+    plt.grid()
+    plt.show()
+
+def get_AVA_ROC_AUC_parameters():
+    dataset = StudentStressDataSet()
+    X_train, X_test, y_train, y_test = dataset.train_and_test()
+
+    models = {
+        "SVM": SVC(kernel='poly', degree=4, C=0.09, coef0=3, gamma='scale'),
+        "Logistic Regression": LogisticRegression(random_state=42, penalty='l2', C=2, max_iter=10000),
+        "Naive Bayes": BernoulliNB(alpha=1, binarize=1, fit_prior=True),
+    }
+
+    # Prepare plot
+    plt.figure(figsize=(10, 7))
+
+    # To collect all fpr, tpr and AUC scores for plotting later
+    all_fpr = np.linspace(0, 1, 100)  # Common FPR to interpolate all curves
+
+    AvA_params = dict()
+    for name, model in models.items():
+        # Initialize AllVsAllClassifier
+        clf_allvsall = AllVsAllClassifier(model, n_classes=3)
+        clf_allvsall.fit(X_train, y_train)
+
+        # Get decision function or probabilities for test set
+        y_score = clf_allvsall.decision_function(X_test)
+
+        # Calculate AUC for all classes and average them (Macro-average AUC)
+        auc_scores = []
+        mean_tpr = np.zeros_like(all_fpr)
+
+        for i in range(3):  # Assuming 3 classes
+            y_test_binary = (y_test == i).astype(int)
+            fpr, tpr, _ = roc_curve(y_test_binary, y_score[:, i])
+            auc_score = roc_auc_score(y_test_binary, y_score[:, i])
+            auc_scores.append(auc_score)
+
+            # Ensure the starting point is (0,0) for each curve
+            if fpr[0] > 0:
+                fpr = np.insert(fpr, 0, 0)  # Insert 0 at the start of fpr
+                tpr = np.insert(tpr, 0, 0)  # Insert 0 at the start of tpr
+
+            # Interpolate each ROC curve at common FPR
+            mean_tpr += np.interp(all_fpr, fpr, tpr)
+
+        # Average it to get the macro-average TPR
+        mean_tpr /= 3
+
+        # Calculate macro-average AUC
+        macro_auc = np.mean(auc_scores)
+
+        AvA_params[name] = [all_fpr, mean_tpr, macro_auc]
+
+    return AvA_params
 
 if __name__ == '__main__':
-    SVM()
+    #SVM()
     #LogistiRegression()
     #NaiveBayes()
+    # 调用绘制函数
+    #plot_seperate_auc_curves()
+    plot_merged_auc_curves()
+
