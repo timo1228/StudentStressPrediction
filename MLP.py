@@ -254,6 +254,12 @@ def plot_roc_auc():
     plt.grid()
     plt.show()
 
+def get_MLP_merged_roc_curve_parameters():
+    dataset = StudentStressDataSet()
+    X_train, X_test, y_train, y_test = dataset.train_and_test()
+    model = BestMLPModel('cpu', filepath='./final_mlp_model.pth')
+    return get_model_merged_roc_curve_parameters(X_test, y_test, model, num_classes=3)
+
 if __name__ == '__main__':
     #train(100, 'gpu')
     #load_and_evaluate_BestMLP_model('cpu')
