@@ -3,3 +3,4 @@ For installation of Chromadb, simply run :
 ```
 pip install chromadb
 ```
+if knn model runs with error, delete directory chromadb and all data in it, the code will generate a new vector database
