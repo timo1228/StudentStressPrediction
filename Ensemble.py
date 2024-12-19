@@ -68,7 +68,7 @@ def Best_RandomForest_model():
 
     # 评估模型性能
     accuracy = accuracy_score(y_test, y_pred)
-    print(f"Accuracy: {accuracy:.6f}") #89.54545454545455%
+    print(f"Best Random Forest Accuracy: {accuracy:.6f}") #89.54545454545455%
     print("\nClassification Report:")
     print(classification_report(y_test, y_pred))
 
@@ -165,7 +165,21 @@ def Best_XGBoost_model():
 
     # 计算并打印准确率
     accuracy = accuracy_score(y_test, y_pred)
-    print(f"XGBoost Accuracy: {accuracy}")
+    print(f"Best XGBoost Accuracy: {accuracy}")
+
+    # 绘制特征重要性
+    feature_importances = xgb_classifier.feature_importances_
+    sorted_indices = np.argsort(feature_importances)[::-1]  # 按重要性从高到低排序
+    sorted_feature_labels = [X.columns[i] for i in sorted_indices]
+    sorted_feature_importances = feature_importances[sorted_indices]
+
+    plt.figure(figsize=(15, 8))
+    plt.barh(sorted_feature_labels, sorted_feature_importances, color='skyblue')
+    plt.xlabel("Feature Importance", fontsize=12)
+    plt.ylabel("Features", fontsize=12)
+    plt.title("Feature Importance in XGBoost", fontsize=16)
+    plt.gca().invert_yaxis()  # Highest importance at the top
+    plt.show()
 
     all_fpr, mean_tpr, macro_auc =  get_model_merged_roc_curve_parameters(X_test=X_test, y_test=y_test, model=xgb_classifier)
 
@@ -320,5 +334,5 @@ def get_XGBoost_ROC_AUC_parameters():
 
 if __name__ == '__main__':
     #Best_RFParam_Search()
-    Best_RandomForest_model()
-    #Best_XGBoost_model()
+    #Best_RandomForest_model()
+    Best_XGBoost_model()

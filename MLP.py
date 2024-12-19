@@ -196,7 +196,7 @@ def load_and_evaluate_BestMLP_model(device):
     predicted = np.argmax(score_function, 1)
     correct = (predicted == y_test).sum()
     total = y_test.shape[0]
-    print("Accuracy of the loaded model on test set: %.2f%%" % (100 * correct / total))
+    print("Accuracy of MLP on test set: %.2f%%" % (100 * correct / total))
 
 def get_model_merged_roc_curve_parameters(X_test, y_test ,model, num_classes=3):
     # 获取模型的预测概率
